@@ -1,12 +1,13 @@
-/// <reference types="vite/client" />
-import path from "path";
-import { fileURLToPath } from "url";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// Dev-only API middleware uses Node globals; Vite loads this with esbuild (no tsc on CI).
+// Production build on Vercel runs only `vite build` — see package.json "build".
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** Load GROQ_API_KEY from multiple places — many users put .env in repo root instead of developer-portfolio/.env */
 function resolveGroqApiKey(mode: string): string {
   const dirs = [
     process.cwd(),
@@ -23,42 +24,28 @@ function resolveGroqApiKey(mode: string): string {
       return env.GROQ_API_KEY.trim();
     }
   }
-  const fromProcess = process.env.GROQ_API_KEY?.trim();
-  return fromProcess || "";
+  return (process.env.GROQ_API_KEY || "").trim();
 }
 
-/**
- * Dev-only: Vite doesn't run Vercel api/*.js.
- * This middleware MUST run first and MUST NOT call next() for POST /api/chat,
- * otherwise the request falls through to Vite's SPA fallback (HTML) and fetch().json() throws.
- */
 function apiChatDevPlugin() {
   return {
     name: "api-chat-dev",
     configureServer(server: import("vite").ViteDevServer) {
-      const apiChatHandler = (
-        req: import("http").IncomingMessage,
-        res: import("http").ServerResponse,
-        next: (err?: unknown) => void
-      ) => {
-        const url = req.url?.split("?")[0] || "";
-        if (req.method !== "POST" || url !== "/api/chat") {
-          return next();
-        }
+      const apiChatHandler = (req: any, res: any, next: (err?: unknown) => void) => {
+        const url = (req.url || "").split("?")[0] || "";
+        if (req.method !== "POST" || url !== "/api/chat") return next();
 
         const apiKey = resolveGroqApiKey(server.config.mode);
-
         const sendJson = (status: number, obj: object) => {
           if (res.writableEnded) return;
           res.statusCode = status;
           res.setHeader("Content-Type", "application/json; charset=utf-8");
           res.end(JSON.stringify(obj));
         };
-
         if (!apiKey) {
           return sendJson(503, {
             error:
-              "Missing GROQ_API_KEY. Add to .env in developer-portfolio OR repo root: GROQ_API_KEY=gsk_... then restart npm run dev. https://console.groq.com",
+              "Missing GROQ_API_KEY. Add to .env and restart dev server. https://console.groq.com",
           });
         }
 
@@ -72,7 +59,6 @@ function apiChatDevPlugin() {
             if (!messages || !Array.isArray(messages)) {
               return sendJson(400, { error: "Missing messages array in body" });
             }
-
             const groqRes = await fetch(
               "https://api.groq.com/openai/v1/chat/completions",
               {
@@ -87,7 +73,6 @@ function apiChatDevPlugin() {
                 }),
               }
             );
-
             const text = await groqRes.text();
             let data: Record<string, unknown>;
             try {
@@ -98,7 +83,6 @@ function apiChatDevPlugin() {
                 details: text.slice(0, 200),
               });
             }
-
             if (!groqRes.ok) {
               const errMsg =
                 (data.error as { message?: string })?.message ||
@@ -106,22 +90,17 @@ function apiChatDevPlugin() {
                 `Groq HTTP ${groqRes.status}`;
               return sendJson(502, { error: errMsg, details: data });
             }
-
             return sendJson(200, data);
           } catch (e) {
             const message = e instanceof Error ? e.message : String(e);
             return sendJson(500, { error: message });
           }
         });
-
-        req.on("error", (err: Error) => {
+        req.on("error", (err: NodeJS.ErrnoException) => {
           sendJson(500, { error: err.message || "Request error" });
         });
-
-        // Do not call next() — we own the response when body ends
       };
 
-      // Run first: prepend if stack exists, else use() (plugin order also matters — keep this plugin first)
       const stack = (server.middlewares as { stack?: unknown[] }).stack;
       if (Array.isArray(stack)) {
         stack.unshift({ route: "", handle: apiChatHandler });
@@ -133,7 +112,6 @@ function apiChatDevPlugin() {
 }
 
 export default defineConfig({
-  // apiChatDevPlugin first so POST /api/chat is handled before SPA fallback
   plugins: [apiChatDevPlugin(), react()],
   build: {
     rollupOptions: {
@@ -149,10 +127,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     minify: "terser",
     terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
-      },
+      compress: { drop_console: true, drop_debugger: true },
     },
   },
   optimizeDeps: {

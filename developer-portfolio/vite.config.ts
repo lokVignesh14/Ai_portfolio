@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import path from "path";
 import { fileURLToPath } from "url";
 import { defineConfig, loadEnv } from "vite";
@@ -113,7 +114,7 @@ function apiChatDevPlugin() {
           }
         });
 
-        req.on("error", (err) => {
+        req.on("error", (err: Error) => {
           sendJson(500, { error: err.message || "Request error" });
         });
 

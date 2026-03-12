@@ -1,0 +1,25 @@
+# Never commit secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies & build
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Optional large assets (uncomment if you don't want them in git)
+# developer-portfolio/public/video/

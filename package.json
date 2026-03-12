@@ -1,0 +1,11 @@
+{
+  "name": "refrence-portfolio",
+  "private": true,
+  "description": "Portfolio app is in developer-portfolio/",
+  "scripts": {
+    "postinstall": "npm install --prefix developer-portfolio",
+    "dev": "npm run dev --prefix developer-portfolio",
+    "build": "npm run build --prefix developer-portfolio",
+    "preview": "npm run preview --prefix developer-portfolio"
+  }
+}
